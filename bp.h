@@ -39,18 +39,135 @@ Steps for gshare branch predictor(n > 0):
 #include <inttypes.h>
 #include <math.h>
 #include <vector>
+#include <string.h>
 
 using namespace std;
 
 class branch_predictor{
-    vector<uint32_t> branch_table, gbh_table;
-    uint32_t m,n;
+    vector<uint32_t> branch_table;
+    uint32_t gbh_reg, index_bits, gbh_bits, chooser_bits, bimodal_bits, predict_taken = 0, predict_not = 0, mispredictions = 0, predictions = 0;
+    char* type;
 
 
 
     public:
-        branch_predictor(uint32_t index_size, uint32_t type){               //takes in arguments: index size = m, and type = n
-            
+        branch_predictor(char* style, uint32_t m, uint32_t n = 0, uint32_t k = 0, uint32_t x = 0){               //takes in arguments: index size = m, and type = n
+            //First set tables and important variables
+            index_bits = m;
+            gbh_bits = n;
+            chooser_bits = k;
+            bimodal_bits = x;
+            type = style;
 
+            if(gbh_bits < 1){               //if bimodal branch predictor
+                branch_table.resize(pow(2,index_bits));        //branch table size = m
+            }
+            else{
+                branch_table.resize(pow(2,index_bits));        //branch table size = m
+                gbh_reg = 0;
+            }
+
+            if(strcmp(type, "hybrid") == 0){
+                //code for creating hybrid table
+            }
+
+            for(uint32_t i = 0; i < branch_table.size(); i++){
+                branch_table[i] = 2;
+            }
+            //Set tables and important variables^^^^^^^^^
         }
+
+        void predict(uint32_t shifted_PC, char result){
+            predictions++;      //incremenent number of predictions made
+            //code for bimodal prediction
+            if(gbh_bits < 1){
+                uint32_t index_mask = pow(2,index_bits) - 1;
+                uint32_t index = shifted_PC & index_mask;           //find index from PC using Mask
+
+                //make prediction based on table
+                if(branch_table[index] >= 2){
+                    predict_taken++;
+                    if(result == 'n'){          //update mispredictions if result does not match
+                        mispredictions++;
+                    }
+                }
+                else{
+                    predict_not++;
+                    if(result == 't'){
+                        mispredictions++;
+                    }
+                }
+                //^^^^^^^^^^^^^^^^^^^^^
+
+                //update table for predictions
+                if((result == 't') && (branch_table[index] < 3)){
+                    branch_table[index]++;
+                }
+                else if((result == 'n') && (branch_table[index] > 0)){
+                    branch_table[index]--;
+                }
+                return;
+                //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            }
+            //Code for Bimodal Prediction^^^^^^^^^^^^^^
+
+
+            //Code for gshare prediction
+            if(strcmp(type,"gshare") == 0){
+                //caclulate index
+                uint32_t index_mask = pow(2,index_bits) - 1;
+                uint32_t index = shifted_PC & index_mask; 
+                uint32_t mn_mask = pow(2,index_bits-gbh_bits) - 1;
+                uint32_t n = (index >> (index_bits - gbh_bits)) ^ gbh_reg ;
+                index = (n << (index_bits - gbh_bits)) | (index & mn_mask);
+                //calculate index^^^^^^^^^^
+
+                //make prediction & adjust variables
+                if(branch_table[index] >= 2){
+                    predict_taken++;
+                    if(result == 'n'){
+                        mispredictions++;
+                    }
+                }
+                else{
+                    predict_not++;
+                    if(result == 't'){
+                        mispredictions++;
+                    }
+                }
+                //make prediction & adjust variables^^^^^^^^^^^
+
+                //adjust branch table
+                if((result == 't') && (branch_table[index] < 3)){
+                    branch_table[index]++;
+                }
+                else if((result == 'n') && (branch_table[index] > 0)){
+                    branch_table[index]--;
+                }
+                //adjust branch table
+
+                //adjust gbh register
+                gbh_reg >> 1;
+                if(result == 't'){
+                    uint32_t n_mask = pow(2,n-1);
+                    gbh_reg = gbh_reg & n_mask;
+                }
+                //adjust gbh register^^^
+            }
+            //code for gshare prediction^^^^^^^^^^
+        }
+
+
+        void print_contents(){
+            printf("\nnumber of predictions:   %d\n", predictions);
+            printf("number of mispredictions:  %d\n", mispredictions);
+            printf("misprediction rate:        %.2f%%\n", 100*((double)mispredictions/(double)predictions));
+            printf("FINAL BIMODAL CONTENTS\n");
+            for(int i = 0; i < branch_table.size(); i++){
+                printf("%d     %d\n", i, branch_table[i]);
+            }
+            return;
+        }
+
+
 };

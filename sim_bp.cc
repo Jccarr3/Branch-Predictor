@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sim_bp.h"
+#include "bp.h"
 
 /*  argc holds the number of command line arguments
     argv[] holds the commands themselves
@@ -16,6 +17,10 @@
 */
 int main (int argc, char* argv[])
 {
+
+    //my code
+    branch_predictor* bp = nullptr;
+    //my code
     FILE *FP;               // File handler
     char *trace_file;       // Variable that holds trace file name;
     bp_params params;       // look at sim_bp.h header file for the the definition of struct bp_params
@@ -29,6 +34,8 @@ int main (int argc, char* argv[])
     }
     
     params.bp_name  = argv[1];
+
+
     
     // strtoul() converts char* to unsigned long. It is included in <stdlib.h>
     if(strcmp(params.bp_name, "bimodal") == 0)              // Bimodal
@@ -41,6 +48,9 @@ int main (int argc, char* argv[])
         params.M2       = strtoul(argv[2], NULL, 10);
         trace_file      = argv[3];
         printf("COMMAND\n%s %s %lu %s\n", argv[0], params.bp_name, params.M2, trace_file);
+        //my code
+        bp = new branch_predictor(params.bp_name, params.M2);
+        //my code
     }
     else if(strcmp(params.bp_name, "gshare") == 0)          // Gshare
     {
@@ -53,7 +63,9 @@ int main (int argc, char* argv[])
         params.N        = strtoul(argv[3], NULL, 10);
         trace_file      = argv[4];
         printf("COMMAND\n%s %s %lu %lu %s\n", argv[0], params.bp_name, params.M1, params.N, trace_file);
-
+        //my code
+        bp = new branch_predictor(params.bp_name, params.M1, params.N);
+        //my code
     }
     else if(strcmp(params.bp_name, "hybrid") == 0)          // Hybrid
     {
@@ -68,7 +80,9 @@ int main (int argc, char* argv[])
         params.M2       = strtoul(argv[5], NULL, 10);
         trace_file      = argv[6];
         printf("COMMAND\n%s %s %lu %lu %lu %lu %s\n", argv[0], params.bp_name, params.K, params.M1, params.N, params.M2, trace_file);
-
+        //my code
+        bp = new branch_predictor(params.bp_name, params.M1, params.N, params.K, params.M2);
+        //my code
     }
     else
     {
@@ -86,17 +100,20 @@ int main (int argc, char* argv[])
     }
     
     char str[2];
+    
     while(fscanf(FP, "%lx %s", &addr, str) != EOF)
     {
         
         outcome = str[0];
-        if (outcome == 't')
-            printf("%lx %s\n", addr, "t");           // Print and test if file is read correctly
-        else if (outcome == 'n')
-            printf("%lx %s\n", addr, "n");          // Print and test if file is read correctly
+        // if (outcome == 't')
+        //     printf("%lx %s\n", addr, "t");           // Print and test if file is read correctly
+        // else if (outcome == 'n')
+        //     printf("%lx %s\n", addr, "n");          // Print and test if file is read correctly
         /*************************************
             Add branch predictor code here
         **************************************/
+       bp->predict(addr >> 2, outcome);
     }
+    bp->print_contents();
     return 0;
 }
