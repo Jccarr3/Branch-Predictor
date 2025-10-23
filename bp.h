@@ -45,8 +45,9 @@ using namespace std;
 
 class branch_predictor{
     vector<uint32_t> branch_table;
-    uint32_t gbh_reg, index_bits, gbh_bits, chooser_bits, bimodal_bits, predict_taken = 0, predict_not = 0, mispredictions = 0, predictions = 0;
+    uint32_t gbh_reg, index_mask, index_bits, gbh_bits, chooser_bits, bimodal_bits, predict_taken = 0, predict_not = 0, mispredictions = 0, predictions = 0;
     char* type;
+    
 
 
 
@@ -58,6 +59,7 @@ class branch_predictor{
             chooser_bits = k;
             bimodal_bits = x;
             type = style;
+            index_mask = pow(2,index_bits) - 1;
 
             if(gbh_bits < 1){               //if bimodal branch predictor
                 branch_table.resize(pow(2,index_bits));        //branch table size = m
@@ -80,8 +82,7 @@ class branch_predictor{
         void predict(uint32_t shifted_PC, char result){
             predictions++;      //incremenent number of predictions made
             //code for bimodal prediction
-            if(gbh_bits < 1){
-                uint32_t index_mask = pow(2,index_bits) - 1;
+            if(gbh_bits < 1){           
                 uint32_t index = shifted_PC & index_mask;           //find index from PC using Mask
 
                 //make prediction based on table
@@ -115,11 +116,8 @@ class branch_predictor{
             //Code for gshare prediction
             if(strcmp(type,"gshare") == 0){
                 //caclulate index
-                uint32_t index_mask = pow(2,index_bits) - 1;
-                uint32_t index = shifted_PC & index_mask; 
-                uint32_t mn_mask = pow(2,index_bits-gbh_bits) - 1;
-                uint32_t n = (index >> (index_bits - gbh_bits)) ^ gbh_reg ;
-                index = (n << (index_bits - gbh_bits)) | (index & mn_mask);
+                uint32_t gbh_temp = gbh_reg << (index_bits - gbh_bits);       //allign gbh with upper n bits from m
+                uint32_t index = gbh_temp ^ (shifted_PC & index_mask);
                 //calculate index^^^^^^^^^^
 
                 //make prediction & adjust variables
@@ -147,10 +145,10 @@ class branch_predictor{
                 //adjust branch table
 
                 //adjust gbh register
-                gbh_reg >> 1;
+                gbh_reg = gbh_reg >> 1;
                 if(result == 't'){
-                    uint32_t n_mask = pow(2,n-1);
-                    gbh_reg = gbh_reg & n_mask;
+                    uint32_t gbh_mask = (uint32_t)pow(2,gbh_bits-1);
+                    gbh_reg = gbh_reg | gbh_mask;
                 }
                 //adjust gbh register^^^
             }
