@@ -47,7 +47,7 @@ int main (int argc, char* argv[])
         }
         params.M2       = strtoul(argv[2], NULL, 10);
         trace_file      = argv[3];
-        printf("COMMAND\n%s %s %lu %s\n", argv[0], params.bp_name, params.M2, trace_file);
+        //printf("COMMAND\n%s %s %lu %s\n", argv[0], params.bp_name, params.M2, trace_file);
         //my code
         bp = new branch_predictor(params.bp_name, params.M2);
         //my code
@@ -62,7 +62,7 @@ int main (int argc, char* argv[])
         params.M1       = strtoul(argv[2], NULL, 10);
         params.N        = strtoul(argv[3], NULL, 10);
         trace_file      = argv[4];
-        printf("COMMAND\n%s %s %lu %lu %s\n", argv[0], params.bp_name, params.M1, params.N, trace_file);
+        //printf("COMMAND\n%s %s %lu %lu %s\n", argv[0], params.bp_name, params.M1, params.N, trace_file);
         //my code
         bp = new branch_predictor(params.bp_name, params.M1, params.N);
         //my code
@@ -79,7 +79,7 @@ int main (int argc, char* argv[])
         params.N        = strtoul(argv[4], NULL, 10);
         params.M2       = strtoul(argv[5], NULL, 10);
         trace_file      = argv[6];
-        printf("COMMAND\n%s %s %lu %lu %lu %lu %s\n", argv[0], params.bp_name, params.K, params.M1, params.N, params.M2, trace_file);
+        //printf("COMMAND\n%s %s %lu %lu %lu %lu %s\n", argv[0], params.bp_name, params.K, params.M1, params.N, params.M2, trace_file);
         //my code
         bp = new branch_predictor(params.bp_name, params.M1, params.N, params.K, params.M2);
         //my code

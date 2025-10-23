@@ -157,10 +157,16 @@ class branch_predictor{
 
 
         void print_contents(){
-            printf("\nnumber of predictions:   %d\n", predictions);
+            printf("OUTPUT\n");
+            printf("number of predictions:   %d\n", predictions);
             printf("number of mispredictions:  %d\n", mispredictions);
             printf("misprediction rate:        %.2f%%\n", 100*((double)mispredictions/(double)predictions));
-            printf("FINAL BIMODAL CONTENTS\n");
+            if(strcmp(type, "bimodal") == 0){
+                printf("FINAL BIMODAL CONTENTS\n");
+            }
+            if(strcmp(type, "gshare") == 0){
+                printf("FINAL GSHARE CONTENTS\n");
+            }
             for(int i = 0; i < branch_table.size(); i++){
                 printf("%d     %d\n", i, branch_table[i]);
             }
