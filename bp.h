@@ -167,7 +167,7 @@ class branch_predictor{
             if(strcmp(type, "gshare") == 0){
                 printf("FINAL GSHARE CONTENTS\n");
             }
-            for(int i = 0; i < branch_table.size(); i++){
+            for(uint32_t i = 0; i < branch_table.size(); i++){
                 printf("%d     %d\n", i, branch_table[i]);
             }
             return;
