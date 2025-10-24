@@ -44,8 +44,8 @@ Steps for gshare branch predictor(n > 0):
 using namespace std;
 
 class branch_predictor{
-    vector<uint32_t> branch_table;
-    uint32_t gbh_reg, index_mask, index_bits, gbh_bits, chooser_bits, bimodal_bits, predict_taken = 0, predict_not = 0, mispredictions = 0, predictions = 0;
+    vector<uint32_t> b_branch_table, g_branch_table,chooser_table;
+    uint32_t gbh_reg = 0, index_mask,bimodal_mask, index_bits, gbh_bits, chooser_size, bimodal_bits, predict_taken = 0, predict_not = 0, mispredictions = 0, predictions = 0;
     char* type;
     
 
@@ -56,26 +56,45 @@ class branch_predictor{
             //First set tables and important variables
             index_bits = m;
             gbh_bits = n;
-            chooser_bits = k;
+            chooser_size = k;
             bimodal_bits = x;
             type = style;
-            index_mask = pow(2,index_bits) - 1;
+            index_mask = (1 << index_bits) - 1;
 
             if(gbh_bits < 1){               //if bimodal branch predictor
-                branch_table.resize(pow(2,index_bits));        //branch table size = m
+                bimodal_bits = index_bits;
+                bimodal_mask = (1 << bimodal_bits) - 1;
+               b_branch_table.resize(1 << bimodal_bits);        //branch table size = m
+               for(uint32_t i = 0; i < b_branch_table.size(); i++){
+                    b_branch_table[i] = 2;
+                }
             }
-            else{
-                branch_table.resize(pow(2,index_bits));        //branch table size = m
-                gbh_reg = 0;
+            else if(strcmp(type,"gshare") == 0){
+                g_branch_table.resize(1 << index_bits);        //branch table size = m
+                for(uint32_t i = 0; i < g_branch_table.size(); i++){
+                    g_branch_table[i] = 2;
+                }
             }
 
             if(strcmp(type, "hybrid") == 0){
                 //code for creating hybrid table
+                bimodal_mask = (1 << bimodal_bits) - 1;
+
+
+                b_branch_table.resize(1 << bimodal_bits);
+                g_branch_table.resize(1 << index_bits);
+                chooser_table.resize(1 << chooser_size);
+                for(uint32_t i = 0; i < chooser_table.size(); i++){
+                    chooser_table[i] = 1;
+                }
+                for(uint32_t i = 0; i < g_branch_table.size(); i++){
+                    g_branch_table[i] = 2;
+                }
+                for(uint32_t i = 0; i < b_branch_table.size(); i++){
+                    b_branch_table[i] = 2;
+                }
             }
 
-            for(uint32_t i = 0; i < branch_table.size(); i++){
-                branch_table[i] = 2;
-            }
             //Set tables and important variables^^^^^^^^^
         }
 
@@ -83,10 +102,8 @@ class branch_predictor{
             predictions++;      //incremenent number of predictions made
             //code for bimodal prediction
             if(gbh_bits < 1){           
-                uint32_t index = shifted_PC & index_mask;           //find index from PC using Mask
-
-                //make prediction based on table
-                if(branch_table[index] >= 2){
+                uint32_t p = bimodal_predict(shifted_PC, result);
+                if(p){
                     predict_taken++;
                     if(result == 'n'){          //update mispredictions if result does not match
                         mispredictions++;
@@ -98,15 +115,7 @@ class branch_predictor{
                         mispredictions++;
                     }
                 }
-                //^^^^^^^^^^^^^^^^^^^^^
-
-                //update table for predictions
-                if((result == 't') && (branch_table[index] < 3)){
-                    branch_table[index]++;
-                }
-                else if((result == 'n') && (branch_table[index] > 0)){
-                    branch_table[index]--;
-                }
+                update_bimodal(shifted_PC, result);
                 return;
                 //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             }
@@ -115,13 +124,8 @@ class branch_predictor{
 
             //Code for gshare prediction
             if(strcmp(type,"gshare") == 0){
-                //caclulate index
-                uint32_t gbh_temp = gbh_reg << (index_bits - gbh_bits);       //allign gbh with upper n bits from m
-                uint32_t index = gbh_temp ^ (shifted_PC & index_mask);
-                //calculate index^^^^^^^^^^
-
-                //make prediction & adjust variables
-                if(branch_table[index] >= 2){
+                uint32_t p = gshare_predict(shifted_PC, result);
+                if(p){
                     predict_taken++;
                     if(result == 'n'){
                         mispredictions++;
@@ -133,28 +137,148 @@ class branch_predictor{
                         mispredictions++;
                     }
                 }
-                //make prediction & adjust variables^^^^^^^^^^^
-
-                //adjust branch table
-                if((result == 't') && (branch_table[index] < 3)){
-                    branch_table[index]++;
-                }
-                else if((result == 'n') && (branch_table[index] > 0)){
-                    branch_table[index]--;
-                }
-                //adjust branch table
-
-                //adjust gbh register
-                gbh_reg = gbh_reg >> 1;
-                if(result == 't'){
-                    uint32_t gbh_mask = (uint32_t)pow(2,gbh_bits-1);
-                    gbh_reg = gbh_reg | gbh_mask;
-                }
-                //adjust gbh register^^^
+                update_gshare(shifted_PC, result);
+                update_gbh(result);
+                return;
             }
             //code for gshare prediction^^^^^^^^^^
+
+            //Code for hybrid prediction
+            else{
+                uint32_t g_prediction,b_prediction, g_correct = 1, b_correct = 1;
+                //find index for chooser table
+                uint32_t chooser_mask = (1 << chooser_size) - 1;
+                uint32_t index = shifted_PC & chooser_mask;
+                //find index for chooser table^^^^^^^^
+
+                //update and make predictions based on chooser table values
+                
+                //call both gshare and bimodal find
+                g_prediction = gshare_predict(shifted_PC, result);
+                b_prediction = bimodal_predict(shifted_PC, result);
+                //check chooser table for which outcome to choose and update said table
+                if(chooser_table[index] >= 2){
+                    update_gshare(shifted_PC, result);
+                    if(g_prediction){
+                        predict_taken++;
+                        if(result == 'n'){
+                            mispredictions++;
+                            g_correct = 0;
+                        }
+                    }
+                    else{
+                        predict_not++;
+                        if(result == 't'){
+                            mispredictions++;
+                            g_correct = 0;
+                        }
+                    }
+                }
+                else{
+                    update_bimodal(shifted_PC, result);
+                    if(b_prediction){
+                        predict_taken++;
+                        if(result == 'n'){
+                            mispredictions++;
+                            b_correct = 0;
+                        }
+                    }
+                    else{
+                        predict_not++;
+                        if(result == 't'){
+                            mispredictions++;
+                            b_correct = 0;
+                        }
+                    }
+                }
+                //update gbh_reg
+                update_gbh(result);
+                //update chooser
+                if((g_correct && !b_correct) && (chooser_table[index] < 3)){
+                    chooser_table[index]++;
+                }
+                else if((!g_correct && b_correct) && (chooser_table[index] > 0)){
+                    chooser_table[index]--;
+                }
+                
+                
+  
+                return;
+            }
+
+            //code for hybrid prediction^^^^^^^^^^^
+
+
         }
 
+        uint32_t gshare_predict(uint32_t shifted_PC, char result){
+            uint32_t prediction;
+            //caclulate index
+            uint32_t gbh_temp = gbh_reg << (index_bits - gbh_bits);       //allign gbh with upper n bits from m
+            uint32_t index = gbh_temp ^ (shifted_PC & index_mask);
+            //calculate index^^^^^^^^^^
+
+            //make prediction & adjust variables
+            if(g_branch_table[index] >= 2){
+                prediction = 1;
+            }
+            else{      
+                prediction = 0;
+            }
+            //make prediction & adjust variables^^^^^^^^^^^
+
+         
+            return prediction;
+        }
+
+        void update_gshare(uint32_t shifted_PC, char result){
+            uint32_t gbh_temp = gbh_reg << (index_bits - gbh_bits);       //allign gbh with upper n bits from m
+            uint32_t index = gbh_temp ^ (shifted_PC & index_mask);
+            if((result == 't') && (g_branch_table[index] < 3)){
+                g_branch_table[index]++;
+            }
+            else if((result == 'n') && (g_branch_table[index] > 0)){
+                g_branch_table[index]--;
+            }
+            return;
+        }
+      
+        uint32_t bimodal_predict(uint32_t shifted_PC, char result){
+            uint32_t prediction;
+            uint32_t index = shifted_PC & bimodal_mask;           //find index from PC using Mask
+
+            //make prediction based on table
+            if(b_branch_table[index] >= 2){
+                prediction = 1;
+            }
+            else{
+                prediction = 0;
+            }
+
+            return prediction;
+            //^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        }
+       
+      void update_bimodal(uint32_t shifted_PC, char result){
+        uint32_t prediction;
+        uint32_t index = shifted_PC & bimodal_mask;           //find index from PC using Mask
+        if((result == 't') && (b_branch_table[index] < 3)){
+            b_branch_table[index]++;
+        }
+        else if((result == 'n') && (b_branch_table[index] > 0)){
+            b_branch_table[index]--;
+        }
+        return;
+      }
+      
+        void update_gbh(char result){
+            gbh_reg = gbh_reg >> 1;
+            if(result == 't'){
+                uint32_t gbh_mask = (uint32_t)(1 << (gbh_bits - 1));
+                gbh_reg = gbh_reg | gbh_mask;
+            }
+            return;
+        }
 
         void print_contents(){
             printf("OUTPUT\n");
@@ -163,12 +287,30 @@ class branch_predictor{
             printf("misprediction rate:        %.2f%%\n", 100*((double)mispredictions/(double)predictions));
             if(strcmp(type, "bimodal") == 0){
                 printf("FINAL BIMODAL CONTENTS\n");
+                for(uint32_t i = 0; i < b_branch_table.size(); i++){
+                    printf("%d     %d\n", i, b_branch_table[i]);
+                }
             }
             if(strcmp(type, "gshare") == 0){
                 printf("FINAL GSHARE CONTENTS\n");
+                for(uint32_t i = 0; i < g_branch_table.size(); i++){
+                    printf("%d     %d\n", i, g_branch_table[i]);
+                }
             }
-            for(uint32_t i = 0; i < branch_table.size(); i++){
-                printf("%d     %d\n", i, branch_table[i]);
+            if (strcmp(type, "hybrid") == 0){
+                printf("FINAL CHOOSER CONTENTS\n");
+                for(uint32_t i = 0; i < chooser_table.size(); i++){
+                    printf("%d     %d\n", i, chooser_table[i]);
+                }
+                printf("FINAL GSHARE CONTENTS\n");
+                for(uint32_t i = 0; i < g_branch_table.size(); i++){
+                    printf("%d     %d\n", i, g_branch_table[i]);
+                }
+                printf("FINAL BIMODAL CONTENTS\n");
+                for(uint32_t i = 0; i < b_branch_table.size(); i++){
+                    printf("%d     %d\n", i, b_branch_table[i]);
+                }
+
             }
             return;
         }
