@@ -102,7 +102,7 @@ class branch_predictor{
             predictions++;      //incremenent number of predictions made
             //code for bimodal prediction
             if(gbh_bits < 1){           
-                uint32_t p = bimodal_predict(shifted_PC, result);
+                uint32_t p = bimodal_predict(shifted_PC);
                 if(p){
                     predict_taken++;
                     if(result == 'n'){          //update mispredictions if result does not match
@@ -124,7 +124,7 @@ class branch_predictor{
 
             //Code for gshare prediction
             if(strcmp(type,"gshare") == 0){
-                uint32_t p = gshare_predict(shifted_PC, result);
+                uint32_t p = gshare_predict(shifted_PC);
                 if(p){
                     predict_taken++;
                     if(result == 'n'){
@@ -154,8 +154,8 @@ class branch_predictor{
                 //update and make predictions based on chooser table values
                 
                 //call both gshare and bimodal find
-                g_prediction = gshare_predict(shifted_PC, result);
-                b_prediction = bimodal_predict(shifted_PC, result);
+                g_prediction = gshare_predict(shifted_PC);
+                b_prediction = bimodal_predict(shifted_PC);
                 //check chooser table for which outcome to choose and update said table
                 if(chooser_table[index] >= 2){
                     update_gshare(shifted_PC, result);
@@ -163,14 +163,12 @@ class branch_predictor{
                         predict_taken++;
                         if(result == 'n'){
                             mispredictions++;
-                            g_correct = 0;
                         }
                     }
                     else{
                         predict_not++;
                         if(result == 't'){
                             mispredictions++;
-                            g_correct = 0;
                         }
                     }
                 }
@@ -180,20 +178,34 @@ class branch_predictor{
                         predict_taken++;
                         if(result == 'n'){
                             mispredictions++;
-                            b_correct = 0;
                         }
                     }
                     else{
                         predict_not++;
                         if(result == 't'){
                             mispredictions++;
-                            b_correct = 0;
                         }
                     }
                 }
                 //update gbh_reg
                 update_gbh(result);
-                //update chooser
+                //check validity of predictions and update chooser
+                if(result == 't'){
+                    if(!g_prediction){
+                        g_correct = 0;
+                    }
+                    if(!b_prediction){
+                        b_correct = 0;
+                    }
+                }
+                else{
+                    if(g_prediction){
+                        g_correct = 0;
+                    }
+                    if(b_prediction){
+                        b_correct = 0;
+                    }
+                }
                 if((g_correct && !b_correct) && (chooser_table[index] < 3)){
                     chooser_table[index]++;
                 }
@@ -211,7 +223,7 @@ class branch_predictor{
 
         }
 
-        uint32_t gshare_predict(uint32_t shifted_PC, char result){
+        uint32_t gshare_predict(uint32_t shifted_PC){
             uint32_t prediction;
             //caclulate index
             uint32_t gbh_temp = gbh_reg << (index_bits - gbh_bits);       //allign gbh with upper n bits from m
@@ -242,8 +254,8 @@ class branch_predictor{
             }
             return;
         }
-      
-        uint32_t bimodal_predict(uint32_t shifted_PC, char result){
+    
+        uint32_t bimodal_predict(uint32_t shifted_PC){
             uint32_t prediction;
             uint32_t index = shifted_PC & bimodal_mask;           //find index from PC using Mask
 
@@ -260,7 +272,6 @@ class branch_predictor{
         }
        
       void update_bimodal(uint32_t shifted_PC, char result){
-        uint32_t prediction;
         uint32_t index = shifted_PC & bimodal_mask;           //find index from PC using Mask
         if((result == 't') && (b_branch_table[index] < 3)){
             b_branch_table[index]++;
@@ -310,7 +321,6 @@ class branch_predictor{
                 for(uint32_t i = 0; i < b_branch_table.size(); i++){
                     printf("%d     %d\n", i, b_branch_table[i]);
                 }
-
             }
             return;
         }
