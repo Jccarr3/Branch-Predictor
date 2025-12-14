@@ -1,7 +1,7 @@
 # Bimodal-Branch-Predictor
 A C++ simulator for evaluating dynamic branch prediction techniques, including Bimodal, Gshare, and Hybrid branch predictors. The simulator processes real branch trace files and reports prediction accuracy, misprediction rates, and final predictor table contents.
 
-This project was developed as part of ECE 463/563 – Computer Architecture at NC State University, and closely follows industry-standard branch prediction designs used in modern processors.
+This project closely follows industry-standard branch prediction designs used in modern processors.
 
 ## Features
 
